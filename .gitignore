@@ -1,0 +1,4 @@
+__pycache__
+env
+inventory.db
+backup.csv
