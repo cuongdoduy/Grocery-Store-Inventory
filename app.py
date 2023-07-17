@@ -15,7 +15,7 @@ def readBrand_csv(filename):
             session.commit()
     print("Finished reading Brands CSV file")
 
-def readProduct_csv(filename):
+def readProduct_csv():
     print("Reading Products CSV file")
     with open('inventory.csv') as csvfile2:
         data = csv.reader(csvfile2)
@@ -30,6 +30,14 @@ def readProduct_csv(filename):
                 brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == inventory_row[4]).scalar()
                 new_product=Products(product_name=product_name,product_quantity=product_quantity,product_price=product_price,date_updated=product_date_updated,brand_id=brand_id)
                 session.add(new_product)
+            else:
+                if (datetime.datetime.strptime(inventory_row[3], '%m/%d/%Y').date() > product_in_db.date_updated):
+                    product_in_db.product_quantity=inventory_row[2]
+                    product_in_db.product_price=int(float(inventory_row[1][1:])*100)
+                    product_in_db.date_updated=datetime.datetime.strptime(inventory_row[3], '%m/%d/%Y')
+                    brand_id = session.query(Brands.brand_id).filter(Brands.brand_name == inventory_row[4]).scalar()
+                    product_in_db.brand_id=brand_id
+                    session.commit()
             session.commit()
     print("Finished reading Products CSV file")
 
@@ -156,6 +164,7 @@ def display_product(product_in_db: Products):
     print("Product Brand: ", brand_name)
     print("--------------------")
     input("Press enter to continue")
+    return
 
 def update_product(product_in_db: Products):
     print("Update product")
@@ -266,13 +275,21 @@ def product_analysis():
 
 def backup_database():
     print("Backing up the database")
-    with open('backup.csv', 'w') as csvfile:
-        fieldnames = ['product_id', 'product_name', 'product_quantity', 'product_price', 'date_updated', 'brand_id']
+    with open('backup_inventory.csv', 'w') as csvfile:
+        fieldnames = ['product_name', 'product_quantity', 'product_price', 'date_updated', 'brand_name']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         products=session.query(Products).all()
         for product in products:
-            writer.writerow({'product_id': product.product_id, 'product_name': product.product_name, 'product_quantity': product.product_quantity, 'product_price': product.product_price, 'date_updated': product.date_updated, 'brand_id': product.brand_id})
+            brand_name=session.query(Brands.brand_name).filter(Brands.brand_id==product.brand_id).scalar()
+            writer.writerow({'product_name': product.product_name, 'product_quantity': product.product_quantity, 'product_price': f"${product.product_price/100}", 'date_updated': product.date_updated.strftime("%m/%d/%Y"), 'brand_name': brand_name})
+    with open('backup_brands.csv', 'w') as csvfile:
+        fieldnames = ['brand_name']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        brands=session.query(Brands).all()
+        for brand in brands:
+            writer.writerow({'brand_name': brand.brand_name})
     print("Finished backing up the database")
     print("--------------------")
     input("Press enter to continue")
@@ -284,5 +301,5 @@ def quit_application():
 if __name__ == "__main__":
     Base.metadata.create_all(engine)
     readBrand_csv('brands.csv')
-    readProduct_csv('inventory.csv')
+    readProduct_csv()
     Menu()
